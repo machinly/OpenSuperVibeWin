@@ -1,104 +1,98 @@
 # OpenSuperVibe
 
-OpenSuperVibe is an open-source macOS menu bar app for local voice-to-text input with optional translation. Speak naturally, and the transcribed (or translated) text is automatically pasted into the active application.
+[中文](README_CN.md)
 
-The macOS app, Swift target, and executable are currently named `SuperVibe`.
+OpenSuperVibe is an open-source voice-to-text app with optional translation. Speak naturally, and the transcribed (or translated) text is automatically pasted into the active application.
+
+Available for **Windows** and **macOS**.
 
 ## Features
 
 - **Local Voice Transcription** -- press a hotkey, speak, and the text is typed for you
+- **Text Polish** -- LLM-powered grammar and punctuation cleanup
 - **Optional Translation** -- translate speech into English, Chinese, Japanese, Korean, French, Spanish, or German
+- **Dual LLM Support** -- Claude (Anthropic) and Gemini (Google)
 - **Cyberpunk Overlay UI** -- floating HUD with animated waveform bars, neon color coding, and scan-line aesthetics
 - **Global Hotkeys** -- works system-wide, no need to focus the app
 
-## Hotkeys
+## Windows
+
+Built with C# / WPF / .NET 8. STT via embedded [Whisper.net](https://github.com/sandrohanea/whisper.net) (no Python required).
+
+### Hotkeys
+
+| Shortcut | Action |
+|---|---|
+| **F9** | Start/stop transcription |
+| **Shift+F9** | Start/stop translation |
+| **ESC** | Cancel current session |
+
+### Quick Start
+
+1. Download `SuperVibe-v0.1.0-win-x64.zip` from [Releases](https://github.com/machinly/OpenSuperVibeWin/releases)
+2. Extract and run `SuperVibe.exe`
+3. Right-click tray icon to set API Key and translation language
+4. Press F9 to record, press F9 again to transcribe and paste
+5. First use downloads Whisper model (~466MB) automatically
+
+### Build from Source
+
+```bash
+dotnet build SuperVibe/SuperVibe.csproj -c Release
+dotnet run --project SuperVibe -c Release
+```
+
+Requires .NET 8 SDK.
+
+### Architecture
+
+| File | Role |
+|---|---|
+| `App.xaml.cs` | System tray, menu, app lifecycle |
+| `AppState.cs` | Core state machine, pipeline orchestration |
+| `HotkeyManager.cs` | Global hotkeys via WH_KEYBOARD_LL |
+| `OverlayWindow.xaml` | Floating cyberpunk HUD overlay |
+| `AudioRecorder.cs` | WASAPI microphone capture, 16kHz mono resampling |
+| `WhisperSttService.cs` | Embedded Whisper.net STT engine |
+| `LlmService.cs` | Claude/Gemini API for polish and translation |
+| `ClipboardPasteService.cs` | Clipboard + SendInput Ctrl+V paste |
+| `ConfigService.cs` | Config persistence (%APPDATA%\SuperVibe) |
+
+## macOS
+
+Built with Swift / SwiftUI / AppKit. STT via [mlx-audio](https://github.com/ml-explore/mlx-audio) VibeVoice (Apple Silicon).
+
+Source code is in the [`macos/`](macos/) directory.
+
+### Hotkeys
 
 | Shortcut | Action |
 |---|---|
 | **Right Option** (press & release) | Start/stop transcription |
-| **Right Option + /** | Start/stop translation (uses the language selected in the menu bar) |
+| **Right Option + /** | Start/stop translation |
 | **ESC** | Cancel current session |
 
-- Transcription mode shows **cyan** UI
-- Translation mode shows **magenta** UI
+### Requirements
 
-## Menu Bar
+- macOS 14.0+, Apple Silicon recommended
+- `mlx-audio` via pipx: `brew install pipx && pipx install mlx-audio`
+- Microphone + Accessibility permissions
 
-Click the waveform icon in the menu bar to:
-
-- Manually start/stop recording
-- Select a translation target language (or turn translation off)
-- Quit the app
-
-## Requirements
-
-- macOS 14.0+
-- Apple Silicon Mac recommended for MLX/VibeVoice
-- VibeVoice via `mlx-audio`
-- Microphone permission
-- Accessibility permission (for global hotkeys)
-- Optional Anthropic or Gemini API key for polishing and translation
-
-## Installation
-
-Install the local speech-to-text dependency:
+### Build from Source
 
 ```bash
-brew install pipx
-pipx install mlx-audio
-```
-
-OpenSuperVibe looks for the `mlx-audio` Python environment at:
-
-```text
-~/.local/pipx/venvs/mlx-audio/bin/python3
-```
-
-Verify the dependency is visible:
-
-```bash
-~/.local/pipx/venvs/mlx-audio/bin/python3 -c "import mlx_audio; print('mlx-audio ok')"
-```
-
-The first transcription loads a VibeVoice model and may download model weights. The default model is `mlx-community/VibeVoice-ASR-4bit` (~5GB). The menu also offers `mlx-community/VibeVoice-ASR-bf16` (~18GB) for higher quality.
-
-Optional polishing and translation use either Anthropic or Gemini. Choose the provider and enter your API key from the menu bar app after launch.
-
-## Build & Run
-
-```bash
+cd macos
 swift build
 swift run
 ```
 
-Or open in Xcode:
-
-```bash
-open Package.swift
-```
-
-## Architecture
-
-| File | Role |
-|---|---|
-| `AppDelegate.swift` | Menu bar UI and status item |
-| `AppState.swift` | Core state machine and local transcription orchestration |
-| `HotkeyManager.swift` | Global hotkey detection (Right Option, ESC) |
-| `OverlayPanel.swift` | Floating cyberpunk overlay (SwiftUI + NSPanel) |
-| `AudioRecorder.swift` | Microphone capture, downsampled to 16kHz mono PCM |
-| `VibeVoiceSTT.swift` | Local VibeVoice process management and transcription |
-| `LLMService.swift` | Optional text polishing and translation |
-| `PasteService.swift` | Clipboard write + simulated Cmd+V paste |
-| `Config.swift` | Session stages |
-
 ## How It Works
 
-1. User presses the hotkey to start recording
-2. Audio is captured from the microphone and kept in memory locally
-3. On stop, the recording is written to a temporary WAV file
-4. VibeVoice transcribes the WAV locally
-5. Optional LLM post-processing polishes or translates the text
-6. The final text is pasted into the frontmost application via the clipboard
+1. Press hotkey to start recording
+2. Audio captured from microphone, kept in memory
+3. On stop, audio is transcribed locally (Whisper on Windows, VibeVoice on macOS)
+4. Optional LLM post-processing: polish or translate
+5. Final text pasted into the frontmost application
 
 ## License
 

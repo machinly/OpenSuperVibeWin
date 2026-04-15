@@ -15,3 +15,5 @@ obj/
 .vs/
 *.DotSettings.user
 dotnet-install.ps1
+publish/
+*.zip
