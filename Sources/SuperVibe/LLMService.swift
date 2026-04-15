@@ -77,7 +77,7 @@ final class LLMService {
 
         let result = try await callAPI(prompt: prompt, originalText: text)
 
-        // If translate was refused, retry with sanitize + simple prompt
+        // If translation falls back to the original text, retry once with a simpler prompt.
         if result == text {
             log("[LLM] Translate was refused, retrying")
             let sanitized = self.sanitize(text)
@@ -109,45 +109,9 @@ final class LLMService {
         return result
     }
 
-    /// Deterministic text-level sanitize: replace known vulgar words with
-    /// mild equivalents so the LLM can translate without refusing.
+    /// Hook for optional text normalization before retrying translation.
     func sanitize(_ text: String) -> String {
-        // Order matters: longer phrases first to avoid partial replacements
-        let replacements: [(String, String)] = [
-            ("操你妈的逼", "你这混蛋"),
-            ("操你妈逼", "你这混蛋"),
-            ("你妈的逼", ""),
-            ("妈的逼", ""),
-            ("操你妈", "你这混蛋"),
-            ("干你妈", "你这混蛋"),
-            ("肏你妈", "你这混蛋"),
-            ("操你的", "你这混蛋"),
-            ("操他妈", "真该死"),
-            ("他妈的", "该死的"),
-            ("你妈的", "该死的"),
-            ("妈的", "该死的"),
-            ("操你", "你这混蛋"),
-            ("干你", "你这混蛋"),
-            ("肏你", "你这混蛋"),
-            ("傻逼", "蠢货"),
-            ("牛逼", "厉害"),
-            ("装逼", "装样子"),
-            ("逼", ""),
-            ("操", "搞"),
-            ("屌", "厉害"),
-            ("鸡巴", ""),
-            ("草泥马", "混蛋"),
-            ("fuck", "damn"),
-            ("shit", "crap"),
-            ("bitch", "jerk"),
-            ("ass", "butt"),
-        ]
-
-        var result = text
-        for (vulgar, clean) in replacements {
-            result = result.replacingOccurrences(of: vulgar, with: clean)
-        }
-        return result
+        text
     }
 
     // MARK: - Private
