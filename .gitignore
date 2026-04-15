@@ -6,3 +6,12 @@ SuperVibe.app/
 .swiftpm/
 /tmp/
 /tools/__pycache__/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+dotnet-install.ps1
