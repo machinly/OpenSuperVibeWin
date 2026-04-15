@@ -25,6 +25,8 @@ public partial class ApiKeyDialog : Window
 
     private void UpdateKeyField()
     {
+        if (KeyLabel == null || KeyInput == null) return;
+
         if (ClaudeRadio?.IsChecked == true)
         {
             KeyLabel.Text = "Anthropic API Key";
