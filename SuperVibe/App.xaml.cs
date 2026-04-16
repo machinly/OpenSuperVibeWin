@@ -115,7 +115,28 @@ public partial class App : Application
 
         menu.Items.Add(new WinForms.ToolStripSeparator());
 
-        // STT Model submenu
+        // STT Engine submenu
+        var engineMenu = new WinForms.ToolStripMenuItem($"STT Engine ({_appState.CurrentEngineName})");
+        var whisperEngineItem = new WinForms.ToolStripMenuItem("Whisper", null, (_, _) =>
+        {
+            _appState.SwitchEngine("whisper");
+            RebuildMenu();
+        });
+        whisperEngineItem.Checked = _appState.SttEngineName == "whisper";
+        engineMenu.DropDownItems.Add(whisperEngineItem);
+
+        var vibeVoiceLabel = _appState.VibeVoiceAvailable ? "VibeVoice" : "VibeVoice (not installed)";
+        var vibeVoiceEngineItem = new WinForms.ToolStripMenuItem(vibeVoiceLabel, null, (_, _) =>
+        {
+            _appState.SwitchEngine("vibevoice");
+            RebuildMenu();
+        });
+        vibeVoiceEngineItem.Checked = _appState.SttEngineName == "vibevoice";
+        vibeVoiceEngineItem.Enabled = _appState.VibeVoiceAvailable;
+        engineMenu.DropDownItems.Add(vibeVoiceEngineItem);
+        menu.Items.Add(engineMenu);
+
+        // STT Model submenu (Whisper only)
         var sttMenu = new WinForms.ToolStripMenuItem($"STT Model ({_appState.SttModel})");
         foreach (var size in SttModelSizes)
         {

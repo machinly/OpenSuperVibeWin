@@ -17,3 +17,5 @@ obj/
 dotnet-install.ps1
 publish/
 *.zip
+venv/
+models/

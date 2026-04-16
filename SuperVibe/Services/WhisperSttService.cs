@@ -10,8 +10,12 @@ using Whisper.net.Ggml;
 
 namespace SuperVibe.Services;
 
-public class WhisperSttService : IDisposable
+public class WhisperSttService : ISttEngine
 {
+    public string Name => "Whisper";
+    public bool IsAvailable => true;
+
+    private Func<string>? _getModelSize;
     private static readonly string ModelsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SuperVibe", "models");
 
@@ -28,6 +32,19 @@ public class WhisperSttService : IDisposable
     private WhisperProcessor? _processor;
     private string? _loadedModel;
     private string? _language;
+
+    public WhisperSttService() { }
+
+    public WhisperSttService(Func<string> getModelSize)
+    {
+        _getModelSize = getModelSize;
+    }
+
+    public async Task EnsureModelLoadedAsync(CancellationToken ct = default)
+    {
+        var modelSize = _getModelSize?.Invoke() ?? "small";
+        await LoadModelAsync(modelSize, ct);
+    }
 
     /// <summary>
     /// Called with download progress (0.0 - 1.0) during model download.
@@ -144,7 +161,7 @@ public class WhisperSttService : IDisposable
 
         // Write float32 array into a MemoryStream as WAV for Whisper.net
         using var memStream = new MemoryStream();
-        WriteWavToStream(memStream, audioBuffer, 16000);
+        AudioUtils.WriteWavToStream(memStream, audioBuffer, 16000);
         memStream.Position = 0;
 
         var segments = new List<string>();
@@ -183,42 +200,6 @@ public class WhisperSttService : IDisposable
         "large" => 3_000_000_000,
         _ => 0
     };
-
-    private static void WriteWavToStream(Stream stream, float[] samples, int sampleRate)
-    {
-        using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
-
-        int bitsPerSample = 16;
-        int channels = 1;
-        int byteRate = sampleRate * channels * bitsPerSample / 8;
-        int blockAlign = channels * bitsPerSample / 8;
-        int dataSize = samples.Length * blockAlign;
-
-        // RIFF header
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        writer.Write(36 + dataSize);
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
-
-        // fmt chunk
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
-        writer.Write(16); // chunk size
-        writer.Write((short)1); // PCM
-        writer.Write((short)channels);
-        writer.Write(sampleRate);
-        writer.Write(byteRate);
-        writer.Write((short)blockAlign);
-        writer.Write((short)bitsPerSample);
-
-        // data chunk
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        writer.Write(dataSize);
-
-        foreach (var sample in samples)
-        {
-            var clamped = Math.Clamp(sample, -1f, 1f);
-            writer.Write((short)(clamped * 32767));
-        }
-    }
 
     public void Dispose()
     {

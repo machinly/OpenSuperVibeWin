@@ -12,6 +12,9 @@ public class AppConfig
     [JsonPropertyName("stt_model")]
     public string SttModel { get; set; } = "small";
 
+    [JsonPropertyName("stt_engine")]
+    public string SttEngine { get; set; } = "whisper";
+
     [JsonPropertyName("llm_api_key")]
     public string? LlmApiKey { get; set; }
 

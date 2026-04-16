@@ -17,7 +17,8 @@ public class AppState : INotifyPropertyChanged, IDisposable
 
     // Services
     private readonly AudioRecorder _audioRecorder = new();
-    private readonly WhisperSttService _whisperStt = new();
+    private ISttEngine _sttEngine = null!;
+    private readonly VibeVoiceSttService _vibeVoiceDetector = new(); // for availability detection only
     private readonly LlmService _llmService = new();
     private readonly HotkeyManager _hotkeyManager = new();
 
@@ -55,6 +56,7 @@ public class AppState : INotifyPropertyChanged, IDisposable
     {
         _config = _configService.Load();
         SyncConfigToLlmService();
+        _sttEngine = CreateEngine(_config.SttEngine);
     }
 
     public void Initialize(Dispatcher dispatcher)
@@ -71,6 +73,10 @@ public class AppState : INotifyPropertyChanged, IDisposable
 
         // Wire up audio level callback
         _audioRecorder.OnAudioLevel = level => AudioLevelUpdate?.Invoke(level);
+
+        // Detect VibeVoice availability in background
+        _ = _vibeVoiceDetector.DetectAvailabilityAsync().ContinueWith(_ =>
+            dispatcher.BeginInvoke(() => ConfigChanged?.Invoke()));
 
         Debug.WriteLine("[AppState] Initialized");
     }
@@ -161,6 +167,41 @@ public class AppState : INotifyPropertyChanged, IDisposable
     {
         get => _config.SttModel;
         set { _config.SttModel = value; SaveConfig(); OnPropertyChanged(); ConfigChanged?.Invoke(); }
+    }
+
+    public string SttEngineName
+    {
+        get => _config.SttEngine;
+    }
+
+    public bool VibeVoiceAvailable => _vibeVoiceDetector.IsAvailable;
+
+    public string CurrentEngineName => _sttEngine.Name;
+
+    public void SwitchEngine(string engineName)
+    {
+        if (_config.SttEngine == engineName) return;
+        _config.SttEngine = engineName;
+        SaveConfig();
+
+        _sttEngine.Dispose();
+        _sttEngine = CreateEngine(engineName);
+
+        Debug.WriteLine($"[AppState] Switched STT engine to {engineName}");
+        OnPropertyChanged(nameof(CurrentEngineName));
+        ConfigChanged?.Invoke();
+    }
+
+    private ISttEngine CreateEngine(string engineName)
+    {
+        if (engineName == "vibevoice" && _vibeVoiceDetector.IsAvailable)
+            return new VibeVoiceSttService();
+
+        // Default to Whisper (or fallback if VibeVoice unavailable)
+        if (engineName == "vibevoice" && !_vibeVoiceDetector.IsAvailable)
+            Debug.WriteLine("[AppState] VibeVoice not available, falling back to Whisper");
+
+        return new WhisperSttService(() => _config.SttModel);
     }
 
     public string? LlmModel
@@ -293,14 +334,14 @@ public class AppState : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            // Load Whisper model if needed
-            await _whisperStt.LoadModelAsync(_config.SttModel, ct);
+            // Load STT model if needed
+            await _sttEngine.EnsureModelLoadedAsync(ct);
             if (ct.IsCancellationRequested) return;
 
             // Transcribe
             var sw = Stopwatch.StartNew();
-            var text = await _whisperStt.TranscribeAsync(audioBuffer, ct);
-            Debug.WriteLine($"[Whisper] ASR {sw.Elapsed.TotalSeconds:F1}s -- {text[..Math.Min(80, text.Length)]}");
+            var text = await _sttEngine.TranscribeAsync(audioBuffer, ct);
+            Debug.WriteLine($"[{_sttEngine.Name}] ASR {sw.Elapsed.TotalSeconds:F1}s -- {text[..Math.Min(80, text.Length)]}");
             if (ct.IsCancellationRequested) return;
 
             if (string.IsNullOrWhiteSpace(text))
@@ -496,6 +537,7 @@ public class AppState : INotifyPropertyChanged, IDisposable
         _processingCts = null;
         _hotkeyManager.Dispose();
         _audioRecorder.Dispose();
-        _whisperStt.Dispose();
+        _sttEngine.Dispose();
+        _vibeVoiceDetector.Dispose();
     }
 }
